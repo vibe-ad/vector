@@ -420,7 +420,7 @@ impl Configurable for Compression {
         apply_metadata(
             &mut window_log_schema,
             Metadata::with_description(
-                "Zstandard window log: the match window is 2^window_log bytes. Only valid with `zstd`.",
+                "Zstandard window log: the match window is 2^window_log bytes. Only valid with `zstd`. Decoders reject windows above 2^27 by default, and HTTP receivers above 2^23 (RFC 9659).",
             ),
         );
         properties.insert(WINDOW_LOG_NAME.to_string(), window_log_schema);
