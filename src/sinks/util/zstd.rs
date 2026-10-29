@@ -83,3 +83,28 @@ impl<W: io::Write + std::fmt::Debug> std::fmt::Debug for ZstdEncoder<W> {
 /// 1. There is no sharing references to zstd encoder. `Write` requires unique reference, and `finish` moves the instance itself.
 /// 2. Sharing only internal writer, which implements `Sync`
 unsafe impl<W: io::Write + Sync> Sync for ZstdEncoder<W> {}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Write;
+
+    use vector_common::decompression::CappedDecoder;
+
+    use super::*;
+
+    #[test]
+    fn window_log_sets_the_frame_window() {
+        let data = vec![b'a'; 1 << 20];
+        let mut encoder =
+            ZstdEncoder::new(Vec::new(), CompressionLevel::Default.into(), Some(27)).unwrap();
+        encoder.write_all(&data).unwrap();
+        let frame = encoder.finish().unwrap();
+
+        // The HTTP decoder caps the window at 2^23, below the frame's 2^27.
+        let http = CappedDecoder::zstd_http_with_limit(frame.as_slice(), 1 << 27).unwrap();
+        assert!(http.decompress().is_err());
+
+        let decoder = CappedDecoder::zstd_with_limit(frame.as_slice(), 1 << 27).unwrap();
+        assert_eq!(decoder.decompress().unwrap(), data);
+    }
+}
